@@ -6,7 +6,7 @@
 
 中文文档：`readme_zh.md`
 
-A single-endpoint Python GenAI SDK: one `Client.generate()` / `generate_stream()` + one `GenerateRequest` structure across multiple providers and modalities.
+Unified, standardized Python GenAI SDK: one API (`Client.generate()` / `generate_stream()`) and a consistent request/response schema across providers and modalities.
 
 ## Features
 
@@ -181,4 +181,3 @@ uv run pytest tests/ -v
 ## License
 
 [Apache-2.0](LICENSE)
-
