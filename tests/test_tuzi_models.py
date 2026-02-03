@@ -124,6 +124,63 @@ class TestTuziModels(unittest.TestCase):
         self.assertEqual(cap.input_modalities, {"audio"})
         self.assertEqual(cap.output_modalities, {"text"})
 
+    def test_tuzi_web_suno_v3_uses_suno_submit_music(self) -> None:
+        from nous.genai.providers import TuziAdapter
+        from nous.genai.providers.openai import OpenAIAdapter
+        from nous.genai.types import GenerateRequest, Message, OutputAudioSpec, OutputSpec, Part
+
+        tuzi = TuziAdapter(
+            openai=OpenAIAdapter(
+                api_key="__demo__",
+                base_url="https://example.invalid/v1",
+                provider_name="tuzi-web",
+            ),
+            gemini=None,
+            anthropic=None,
+        )
+
+        req = GenerateRequest(
+            model="tuzi-web:suno-v3",
+            input=[Message(role="user", content=[Part.from_text("lofi hiphop beat")])],
+            output=OutputSpec(
+                modalities=["audio"], audio=OutputAudioSpec(voice="alloy", format="mp3")
+            ),
+            wait=True,
+        )
+
+        calls: list[dict[str, object]] = []
+
+        def fake_request_json(*, method, url, headers=None, json_body=None, **_kwargs):
+            calls.append({"method": method, "url": url, "json_body": json_body})
+            if url == "https://example.invalid/suno/submit/music":
+                return {"data": "task_123"}
+            if url == "https://example.invalid/suno/fetch/task_123":
+                return {
+                    "data": {
+                        "status": "SUCCESS",
+                        "data": {"audio_url": "https://example.invalid/a.mp3"},
+                    }
+                }
+            raise AssertionError(f"unexpected request_json call: {method} {url}")
+
+        with patch("nous.genai.providers.tuzi.request_json") as request_json:
+            request_json.side_effect = fake_request_json
+            resp = tuzi.generate(req, stream=False)
+
+        self.assertEqual(resp.status, "completed")
+        parts = [p for m in resp.output for p in m.content]
+        self.assertEqual(len(parts), 1)
+        self.assertEqual(parts[0].type, "audio")
+        self.assertIsNotNone(parts[0].source)
+        self.assertEqual(getattr(parts[0].source, "kind", None), "url")
+        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+
+        submit = next((c for c in calls if c["url"] == "https://example.invalid/suno/submit/music"), None)
+        self.assertIsNotNone(submit)
+        body = submit["json_body"]
+        self.assertIsInstance(body, dict)
+        self.assertEqual(body.get("mv"), "chirp-v3-5")
+
     def test_openai_images_supports_tuzi_wrapped_response(self) -> None:
         from nous.genai.providers.openai import OpenAIAdapter
         from nous.genai.types import (

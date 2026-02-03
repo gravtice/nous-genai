@@ -79,6 +79,8 @@ _SUNO_WORKFLOW_MODELS = frozenset(
     }
 )
 
+_SUNO_MUSIC_MODELS = frozenset({"suno_music", "suno-v3"})
+
 
 def _extract_first_url(pattern: re.Pattern[str], text: str) -> str | None:
     m = pattern.search(text)
@@ -144,6 +146,17 @@ class TuziAdapter:
                 supports_tools=False,
                 supports_json_schema=False,
             )
+        if mid_l in _SUNO_MUSIC_MODELS or (
+            mid_l.startswith("chirp-") and mid_l != "chirp-v3"
+        ):
+            return Capability(
+                input_modalities={"text"},
+                output_modalities={"audio"},
+                supports_stream=False,
+                supports_job=True,
+                supports_tools=False,
+                supports_json_schema=False,
+            )
         if mid_l in _SUNO_WORKFLOW_MODELS:
             return Capability(
                 input_modalities={"text"},
@@ -157,17 +170,6 @@ class TuziAdapter:
             return Capability(
                 input_modalities={"text"},
                 output_modalities={"text"},
-                supports_stream=False,
-                supports_job=True,
-                supports_tools=False,
-                supports_json_schema=False,
-            )
-        if mid_l == "suno_music" or (
-            mid_l.startswith("chirp-") and mid_l != "chirp-v3"
-        ):
-            return Capability(
-                input_modalities={"text"},
-                output_modalities={"audio"},
                 supports_stream=False,
                 supports_job=True,
                 supports_tools=False,
@@ -246,7 +248,7 @@ class TuziAdapter:
             return self._suno_workflow(request, model_id=model_id)
 
         if modalities == {"audio"} and (
-            mid_l == "suno_music"
+            mid_l in _SUNO_MUSIC_MODELS
             or (mid_l.startswith("chirp-") and mid_l != "chirp-v3")
         ):
             if stream:
@@ -659,7 +661,11 @@ class TuziAdapter:
     ) -> GenerateResponse:
         prompt = self._single_text_prompt(request)
         host = self._base_host()
-        mv = model_id if model_id.lower().startswith("chirp-") else "chirp-v3-5"
+        mid_l = model_id.lower().strip()
+        if mid_l.startswith("chirp-"):
+            mv = model_id
+        else:
+            mv = "chirp-v3-5"
         body: dict[str, object] = {
             "prompt": prompt,
             "tags": "",
@@ -776,8 +782,9 @@ class TuziAdapter:
             data = self._suno_fetch(
                 host=host, task_id=task_id, timeout_ms=min(30_000, remaining_ms)
             )
-            status = data.get("status")
-            if status == "SUCCESS":
+            raw_status = data.get("status")
+            status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+            if status in {"SUCCESS", "SUCCEEDED"}:
                 inner = data.get("data")
                 if isinstance(inner, dict):
                     text = inner.get("text")
@@ -794,7 +801,7 @@ class TuziAdapter:
                             ],
                         )
                 raise provider_error("suno lyrics succeeded but missing text")
-            if status == "FAIL":
+            if status in {"FAIL", "FAILED", "ERROR"}:
                 raise provider_error(f"suno task failed: {data.get('fail_reason')}")
             time.sleep(min(2.0, max(0.0, deadline - time.time())))
 
@@ -827,8 +834,9 @@ class TuziAdapter:
             data = self._suno_fetch(
                 host=host, task_id=task_id, timeout_ms=min(30_000, remaining_ms)
             )
-            status = data.get("status")
-            if status == "SUCCESS":
+            raw_status = data.get("status")
+            status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+            if status in {"SUCCESS", "SUCCEEDED"}:
                 inner = data.get("data")
                 urls: list[str] = []
                 if isinstance(inner, dict):
@@ -869,7 +877,7 @@ class TuziAdapter:
                         output=[Message(role="assistant", content=[part])],
                     )
                 raise provider_error("suno music succeeded but missing audio url")
-            if status == "FAIL":
+            if status in {"FAIL", "FAILED", "ERROR"}:
                 raise provider_error(f"suno task failed: {data.get('fail_reason')}")
             time.sleep(min(2.0, max(0.0, deadline - time.time())))
 
@@ -902,8 +910,9 @@ class TuziAdapter:
             data = self._suno_fetch(
                 host=host, task_id=task_id, timeout_ms=min(30_000, remaining_ms)
             )
-            status = data.get("status")
-            if status == "SUCCESS":
+            raw_status = data.get("status")
+            status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+            if status in {"SUCCESS", "SUCCEEDED"}:
                 inner = data.get("data")
                 parts: list[Part] = []
                 blob = json.dumps(inner, ensure_ascii=False)
@@ -958,7 +967,7 @@ class TuziAdapter:
                     status="completed",
                     output=[Message(role="assistant", content=parts)],
                 )
-            if status == "FAIL":
+            if status in {"FAIL", "FAILED", "ERROR"}:
                 raise provider_error(f"suno task failed: {data.get('fail_reason')}")
             time.sleep(min(2.0, max(0.0, deadline - time.time())))
 
