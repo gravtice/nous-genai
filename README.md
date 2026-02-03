@@ -1,12 +1,12 @@
-# nous-genai-sdk
+# nous-genai
 
-![CI](https://github.com/gravtice/nous-genai-sdk/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/gravtice/nous-genai/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-≥3.12-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 中文文档：`readme_zh.md`
 
-Unified, standardized Python GenAI SDK: one interface (`Client.generate()` / `generate_stream()`) + a consistent `GenerateRequest/GenerateResponse` schema across providers and modalities.
+One interface for calling multimodal models; four ways to use: Skill, MCP, CLI, SDK.
 
 ## Features
 
@@ -22,7 +22,7 @@ Unified, standardized Python GenAI SDK: one interface (`Client.generate()` / `ge
 ## Installation
 
 ```bash
-pip install nous-genai-sdk
+pip install nous-genai
 ```
 
 For development:

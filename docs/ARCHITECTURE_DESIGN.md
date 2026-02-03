@@ -1,4 +1,4 @@
-# GenAISDK Architecture Design
+# nous-genai Architecture Design
 
 > 目标：提供一个**单一 endpoint** 的 Python SDK，用统一的请求/响应模型支持端到端多模态（文本/图片/音频/视频）输入输出，并对接多家生成式 AI 提供商。  
 > 本文只做设计，不包含实现代码。

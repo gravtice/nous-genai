@@ -1,12 +1,12 @@
-# nous-genai-sdk
+# nous-genai
 
-![CI](https://github.com/gravtice/nous-genai-sdk/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/gravtice/nous-genai/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-≥3.12-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 English README: `README.md`
 
-一个统一、标准化的 Python GenAI SDK：一个接口（`Client.generate()` / `generate_stream()`）+ 一套标准化 `GenerateRequest/GenerateResponse`，打通多 Provider、多模态能力。
+一个接口实现所有模态模型的调用，四种使用方式：Skill MCP CLI SDK
 
 ## Features
 
@@ -23,7 +23,7 @@ English README: `README.md`
 
 ```bash
 # 从 PyPI 安装
-pip install nous-genai-sdk
+pip install nous-genai
 
 # 从源码安装（开发）
 pip install -e .

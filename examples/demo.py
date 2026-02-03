@@ -1,5 +1,5 @@
 """
-nous-genai-sdk demo CLI (preset inputs, zero-parameter).
+nous-genai demo CLI (preset inputs, zero-parameter).
 
 Usage:
   uv run examples/demo.py image --model tuzi-openai:dall-e-3
@@ -275,7 +275,7 @@ def _cmd_embed(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="nous-genai-sdk demo (preset inputs)")
+    parser = argparse.ArgumentParser(description="nous-genai demo (preset inputs)")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_chat = sub.add_parser("chat", help="Chat with preset prompt + preset image")

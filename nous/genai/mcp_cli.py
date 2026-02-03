@@ -212,7 +212,7 @@ async def _run(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="genai-mcp-cli",
-        description="MCP client for debugging nous-genai-sdk MCP server (Streamable HTTP)",
+        description="MCP client for debugging nous-genai MCP server (Streamable HTTP)",
     )
     parser.add_argument(
         "--bearer-token",
@@ -240,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("resources", help="List concrete resources")
 
     p_read = sub.add_parser("read", help="Read resource by URI")
-    p_read.add_argument("uri", help='URI like "genaisdk://artifact/{id}"')
+    p_read.add_argument("uri", help='URI like "genai://artifact/{id}"')
     p_read.add_argument(
         "--max-chars",
         type=int,

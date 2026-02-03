@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nous-genai-sdk"
+name = "nous-genai"
 version = "0.1.0"
 description = "Single-endpoint GenAI SDK (multi-provider, multimodal)"
 readme = "README.md"
@@ -18,8 +18,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/gravtice/nous-genai-sdk"
-Issues = "https://github.com/gravtice/nous-genai-sdk/issues"
+Homepage = "https://github.com/gravtice/nous-genai"
+Issues = "https://github.com/gravtice/nous-genai/issues"
 
 [dependency-groups]
 dev = ["mypy>=1.10.0", "pytest>=8.0.0", "ruff>=0.5.0"]

@@ -1,14 +1,14 @@
 ---
 name: nous-genai-skill
 description: >
-  Use nous-genai-sdk (GenAISDK) as an end user (not a contributor): run `genai` CLI for text/image/audio/video/embedding
+  Use nous-genai as an end user (not a contributor): run `genai` CLI for text/image/audio/video/embedding
   across providers (OpenAI/Gemini/Claude/DashScope/Doubao/Tuzi), save binary outputs, list available models, and start a
   local MCP server (Streamable HTTP/SSE) with auth. Use when setting up `.env.local` provider keys, choosing
   `{provider}:{model_id}`, or debugging common issues (auth/timeout/SSRF-download/MCP bearer-token rules).
-  中文: 用 GenAISDK 调用多家大模型 + 启动 MCP 服务 + 排错。
+  中文: 用 nous-genai 调用多家大模型 + 启动 MCP 服务 + 排错。
 ---
 
-# GenAISDK（用户版）
+# nous-genai（用户版）
 
 ## Quick Start
 
@@ -23,16 +23,16 @@ description: >
 #   NOUS_GENAI_OPENAI_API_KEY=...
 
 # 3) Text
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai --model openai:gpt-4o-mini --prompt "Hello")
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai --model openai:gpt-4o-mini --prompt "Hello")
 
 # 4) See what you can use (requires at least one provider key configured)
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai model available --all)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai model available --all)
 ```
 
 If `uvx` is unavailable, install once and use `genai` directly:
 
 ```bash
-python -m pip install --upgrade nous-genai-sdk
+python -m pip install --upgrade nous-genai
 (cd "<SKILL_BASE_DIR>" && genai --model openai:gpt-4o-mini --prompt "Hello")
 ```
 
@@ -74,14 +74,14 @@ Model string is `{provider}:{model_id}` (example: `openai:gpt-4o-mini`).
 Use this to pick a model by output modality:
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai model available --all)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai model available --all)
 # Look for: out=text / out=image / out=audio / out=video / out=embedding
 ```
 
 If you have not configured any keys yet, you can still view the SDK curated list:
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai model sdk)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai model sdk)
 ```
 
 ## Common Scenarios
@@ -89,25 +89,25 @@ If you have not configured any keys yet, you can still view the SDK curated list
 ### Image understanding
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai --model openai:gpt-4o-mini --prompt "Describe this image" --image-path "/path/to/image.png")
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai --model openai:gpt-4o-mini --prompt "Describe this image" --image-path "/path/to/image.png")
 ```
 
 ### Image generation (save to file)
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai --model openai:gpt-image-1 --prompt "A red square, minimal" --output-path "/tmp/out.png")
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai --model openai:gpt-image-1 --prompt "A red square, minimal" --output-path "/tmp/out.png")
 ```
 
 ### Speech-to-text (transcription)
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai --model openai:whisper-1 --audio-path "/path/to/audio.wav")
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai --model openai:whisper-1 --audio-path "/path/to/audio.wav")
 ```
 
 ### Text-to-speech (save to file)
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai --model openai:tts-1 --prompt "你好" --output-path "/tmp/tts.mp3")
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai --model openai:tts-1 --prompt "你好" --output-path "/tmp/tts.mp3")
 ```
 
 ## Python SDK（集成到你的项目）
@@ -115,7 +115,7 @@ If you have not configured any keys yet, you can still view the SDK curated list
 Install:
 
 ```bash
-python -m pip install --upgrade nous-genai-sdk
+python -m pip install --upgrade nous-genai
 ```
 
 Minimal example:
@@ -142,7 +142,7 @@ Note: `Client()` loads `.env.*` from the current working directory; run your scr
 Start server (Streamable HTTP: `/mcp`, SSE: `/sse`):
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai-mcp-server)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-server)
 ```
 
 Recommended: set auth in `.env.local` before exposing the server:
@@ -154,10 +154,10 @@ Recommended: set auth in `.env.local` before exposing the server:
 Debug with MCP CLI:
 
 ```bash
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai-mcp-cli env)
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai-mcp-cli tools)
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai-mcp-cli call --name list_providers)
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai-sdk genai-mcp-cli call --name generate --args '{"model":"openai:gpt-4o-mini","input":"Hello","output":{"modalities":["text"]}}')
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli env)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli tools)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli call --name list_providers)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli call --name generate --args '{"model":"openai:gpt-4o-mini","input":"Hello","output":{"modalities":["text"]}}')
 ```
 
 ## Troubleshooting

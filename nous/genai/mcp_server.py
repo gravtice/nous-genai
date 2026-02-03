@@ -26,7 +26,7 @@ from .types import (
 _MCP_GENERATE_REQUEST_SCHEMA: dict = {
     "type": "object",
     "title": "GenerateRequest",
-    "description": 'GenAISDK request object. `model` must be "{provider}:{model_id}" (e.g. "openai:gpt-4o-mini").',
+    "description": 'nous-genai request object. `model` must be "{provider}:{model_id}" (e.g. "openai:gpt-4o-mini").',
     "required": ["model", "input", "output"],
     "properties": {
         "model": {
@@ -366,7 +366,7 @@ def build_server(
 ):
     """
     Build a FastMCP server that exposes:
-    - generate: GenAISDK Client.generate wrapper (MCP-friendly defaults)
+    - generate: Client.generate wrapper (MCP-friendly defaults)
     - list_providers: discover providers configured on this server
     - list_available_models: list available models for a provider (fully-qualified)
     - list_all_available_models: list available models across all providers (fully-qualified)
@@ -395,7 +395,7 @@ def build_server(
     os.environ["NOUS_GENAI_TRANSPORT"] = "mcp"
     if host is None or port is None:
         host, port = _get_host_port()
-    server = FastMCP(name="GenAISDK", host=host, port=port)
+    server = FastMCP(name="nous-genai", host=host, port=port)
 
     keywords: list[str] = []
     for raw in model_keywords or []:
@@ -553,7 +553,7 @@ def build_server(
             headers=headers,
         )
 
-    @server.resource("genaisdk://artifact/{artifact_id}", mime_type="application/json")
+    @server.resource("genai://artifact/{artifact_id}", mime_type="application/json")
     def read_artifact(artifact_id: str) -> dict[str, Any]:
         item = artifacts.get(artifact_id)
         if item is None:
@@ -881,7 +881,7 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = argparse.ArgumentParser(
         prog="genai-mcp-server",
-        description="nous-genai-sdk MCP server (Streamable HTTP: /mcp, SSE: /sse)",
+        description="nous-genai MCP server (Streamable HTTP: /mcp, SSE: /sse)",
     )
     parser.add_argument(
         "--proxy",

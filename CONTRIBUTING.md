@@ -1,6 +1,6 @@
-# Contributing to nous-genai-sdk
+# Contributing to nous-genai
 
-Thank you for your interest in contributing to nous-genai-sdk!
+Thank you for your interest in contributing to nous-genai!
 
 ## Development Setup
 
@@ -13,8 +13,8 @@ Thank you for your interest in contributing to nous-genai-sdk!
 
 ```bash
 # Clone the repository
-git clone https://github.com/gravtice/nous-genai-sdk.git
-cd nous-genai-sdk
+git clone https://github.com/gravtice/nous-genai.git
+cd nous-genai
 
 # Install dependencies with uv
 uv sync
@@ -128,7 +128,7 @@ How were these changes tested?
 When reporting issues, please include:
 
 - Python version
-- nous-genai-sdk version
+- nous-genai version
 - Minimal reproducible example
 - Expected vs actual behavior
 - Full error traceback (if applicable)

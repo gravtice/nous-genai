@@ -387,7 +387,7 @@ wheels = [
 ]
 
 [[package]]
-name = "nous-genai-sdk"
+name = "nous-genai"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

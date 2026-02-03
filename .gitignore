@@ -20,6 +20,9 @@ demo_*.pcm
 demo_*.wav
 demo_*.mp4
 
+# cli outputs
+genai_output.*
+
 # demo preset assets (tracked)
 !examples/demo_image.png
 !examples/demo_tts.mp3

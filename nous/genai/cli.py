@@ -39,7 +39,7 @@ from .types import (
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        prog="genai", description="nous-genai-sdk CLI (minimal)"
+        prog="genai", description="nous-genai CLI (minimal)"
     )
     sub = parser.add_subparsers(dest="command")
 
