@@ -110,6 +110,15 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--output-path", help="Write output to file (text/json/binary)")
     parser.add_argument("--ouput-path", dest="output_path", help=argparse.SUPPRESS)
     parser.add_argument(
+        "--job-id",
+        help="Resume/poll a provider job id (tuzi-web only for now); ignores --prompt/--*-path",
+    )
+    parser.add_argument(
+        "--no-wait",
+        action="store_true",
+        help="Do not wait for job completion (returns job_id if supported)",
+    )
+    parser.add_argument(
         "--timeout-ms",
         type=int,
         help="Timeout budget in milliseconds (overrides NOUS_GENAI_TIMEOUT_MS)",
@@ -184,7 +193,25 @@ def main(argv: list[str] | None = None) -> None:
         except BrokenPipeError:
             return
 
+    client = Client()
     provider, model_id = _split_model(args.model)
+    _apply_protocol_override(client, provider=provider, protocol=args.protocol)
+
+    cap = client.capabilities(args.model)
+    output = _infer_output_spec(provider=provider, model_id=model_id, cap=cap)
+
+    if args.job_id:
+        _run_job(
+            client,
+            provider=provider,
+            model_id=model_id,
+            job_id=str(args.job_id),
+            output=output,
+            output_path=args.output_path,
+            timeout_ms=timeout_ms,
+        )
+        return
+
     prompt = args.prompt
     if prompt is None and args.prompt_path:
         try:
@@ -192,11 +219,6 @@ def main(argv: list[str] | None = None) -> None:
                 prompt = f.read()
         except OSError as e:
             raise SystemExit(f"cannot read --prompt-path: {e}") from None
-    client = Client()
-    _apply_protocol_override(client, provider=provider, protocol=args.protocol)
-
-    cap = client.capabilities(args.model)
-    output = _infer_output_spec(provider=provider, model_id=model_id, cap=cap)
 
     parts = _build_input_parts(
         prompt=prompt,
@@ -212,7 +234,7 @@ def main(argv: list[str] | None = None) -> None:
         model=args.model,
         input=[Message(role="user", content=parts)],
         output=output,
-        wait=True,
+        wait=not bool(getattr(args, "no_wait", False)),
     )
     if timeout_ms is not None:
         req = replace(req, params=replace(req.params, timeout_ms=timeout_ms))
@@ -229,21 +251,28 @@ def main(argv: list[str] | None = None) -> None:
             if resp.job and resp.job.job_id:
                 print(resp.job.job_id)
                 if resp.status == "running":
-                    effective_timeout_ms = timeout_ms
-                    if effective_timeout_ms is None:
-                        effective_timeout_ms = getattr(
-                            client, "_default_timeout_ms", None
+                    if not req.wait:
+                        print(
+                            "[INFO] 已提交任务（未等待完成）；已返回 job_id。"
+                            f"可用 --job-id {resp.job.job_id} 继续轮询/下载。",
+                            file=sys.stderr,
                         )
-                    timeout_note = (
-                        f"{effective_timeout_ms}ms"
-                        if isinstance(effective_timeout_ms, int)
-                        else "timeout"
-                    )
-                    print(
-                        f"[INFO] 任务仍在运行（等待 {elapsed_s:.1f}s，可能已超时 {timeout_note}）；已返回 job_id。"
-                        "可增大 --timeout-ms 或设置 NOUS_GENAI_TIMEOUT_MS 后重试。",
-                        file=sys.stderr,
-                    )
+                    else:
+                        effective_timeout_ms = timeout_ms
+                        if effective_timeout_ms is None:
+                            effective_timeout_ms = getattr(
+                                client, "_default_timeout_ms", None
+                            )
+                        timeout_note = (
+                            f"{effective_timeout_ms}ms"
+                            if isinstance(effective_timeout_ms, int)
+                            else "timeout"
+                        )
+                        print(
+                            f"[INFO] 任务仍在运行（等待 {elapsed_s:.1f}s，可能已超时 {timeout_note}）；已返回 job_id。"
+                            f"可用 --job-id {resp.job.job_id} 继续轮询/下载，或增大 --timeout-ms 重试。",
+                            file=sys.stderr,
+                        )
                     if args.output_path:
                         print(
                             f"[INFO] 未写入输出文件：{args.output_path}",
@@ -273,6 +302,95 @@ def main(argv: list[str] | None = None) -> None:
 _DEFAULT_VIDEO_URL = (
     "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
 )
+
+
+def _run_job(
+    client: Client,
+    *,
+    provider: str,
+    model_id: str,
+    job_id: str,
+    output: OutputSpec,
+    output_path: str | None,
+    timeout_ms: int | None,
+) -> None:
+    provider = provider.strip().lower()
+    if provider != "tuzi-web":
+        raise SystemExit("--job-id only supported for provider=tuzi-web for now")
+
+    job_id = job_id.strip()
+    if not job_id:
+        raise SystemExit("--job-id must be non-empty")
+
+    adapter = client._adapter(provider)
+    from .providers import TuziAdapter
+
+    if not isinstance(adapter, TuziAdapter):
+        raise SystemExit("tuzi-web adapter not configured")
+
+    effective_timeout_ms = timeout_ms
+    if effective_timeout_ms is None:
+        effective_timeout_ms = getattr(client, "_default_timeout_ms", None)
+    if effective_timeout_ms is None:
+        effective_timeout_ms = 120_000
+
+    modalities = set(output.modalities)
+    if modalities == {"text"}:
+        fn = lambda: adapter._suno_wait_fetch_text(
+            task_id=job_id,
+            model_id=model_id,
+            timeout_ms=effective_timeout_ms,
+            wait=True,
+        )
+    elif modalities == {"audio"}:
+        fn = lambda: adapter._suno_wait_fetch_audio(
+            task_id=job_id,
+            model_id=model_id,
+            timeout_ms=effective_timeout_ms,
+            wait=True,
+        )
+    else:
+        fn = lambda: adapter._suno_wait_fetch_any(
+            task_id=job_id,
+            model_id=model_id,
+            timeout_ms=effective_timeout_ms,
+            wait=True,
+        )
+
+    show_progress = sys.stderr.isatty()
+    resp, elapsed_s = _run_with_spinner(fn, enabled=show_progress, label="等待任务完成")
+
+    if resp.status != "completed":
+        if resp.job and resp.job.job_id:
+            print(resp.job.job_id)
+            if resp.status == "running":
+                timeout_note = (
+                    f"{effective_timeout_ms}ms"
+                    if isinstance(effective_timeout_ms, int)
+                    else "timeout"
+                )
+                print(
+                    f"[INFO] 任务仍在运行（等待 {elapsed_s:.1f}s，可能已超时 {timeout_note}）；已返回 job_id。"
+                    "可稍后重试 --job-id。",
+                    file=sys.stderr,
+                )
+                if output_path:
+                    print(f"[INFO] 未写入输出文件：{output_path}", file=sys.stderr)
+        else:
+            raise SystemExit(f"[FAIL]: request status={resp.status}")
+        return
+
+    if not resp.output:
+        raise SystemExit("[FAIL]: missing output")
+    _write_response(
+        resp.output[0].content,
+        output=output,
+        output_path=output_path,
+        timeout_ms=timeout_ms,
+        download_auth=_download_auth(client, provider=provider),
+    )
+    if show_progress:
+        print(f"[INFO] 完成，用时 {elapsed_s:.1f}s", file=sys.stderr)
 
 
 def _run_probe(args: argparse.Namespace, *, timeout_ms: int | None) -> int:

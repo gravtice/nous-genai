@@ -150,6 +150,11 @@ print(client.list_all_available_models())
 uv run genai --model openai:gpt-4o-mini --prompt "你好"
 uv run genai model available --all
 
+# Tuzi Suno 音乐
+uv run genai --model tuzi-web:suno-v3 --prompt "lofi hiphop beat, 30s" --no-wait
+# ...稍后
+uv run genai --model tuzi-web:suno-v3 --job-id "<job_id>" --output-path demo_suno.mp3 --timeout-ms 600000
+
 # MCP Server
 uv run genai-mcp-server                    # Streamable HTTP: /mcp, SSE: /sse
 uv run genai-mcp-cli tools                 # CLI 测试
