@@ -127,7 +127,13 @@ class TestTuziModels(unittest.TestCase):
     def test_tuzi_web_suno_v3_uses_suno_submit_music(self) -> None:
         from nous.genai.providers import TuziAdapter
         from nous.genai.providers.openai import OpenAIAdapter
-        from nous.genai.types import GenerateRequest, Message, OutputAudioSpec, OutputSpec, Part
+        from nous.genai.types import (
+            GenerateRequest,
+            Message,
+            OutputAudioSpec,
+            OutputSpec,
+            Part,
+        )
 
         tuzi = TuziAdapter(
             openai=OpenAIAdapter(
@@ -173,9 +179,18 @@ class TestTuziModels(unittest.TestCase):
         self.assertEqual(parts[0].type, "audio")
         self.assertIsNotNone(parts[0].source)
         self.assertEqual(getattr(parts[0].source, "kind", None), "url")
-        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3"
+        )
 
-        submit = next((c for c in calls if c["url"] == "https://example.invalid/suno/submit/music"), None)
+        submit = next(
+            (
+                c
+                for c in calls
+                if c["url"] == "https://example.invalid/suno/submit/music"
+            ),
+            None,
+        )
         self.assertIsNotNone(submit)
         body = submit["json_body"]
         self.assertIsInstance(body, dict)
