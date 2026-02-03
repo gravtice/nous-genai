@@ -336,21 +336,14 @@ def _run_job(
 
     modalities = set(output.modalities)
     if modalities == {"text"}:
-        fn = lambda: adapter._suno_wait_fetch_text(
-            task_id=job_id,
-            model_id=model_id,
-            timeout_ms=effective_timeout_ms,
-            wait=True,
-        )
+        fetch = adapter._suno_wait_fetch_text
     elif modalities == {"audio"}:
-        fn = lambda: adapter._suno_wait_fetch_audio(
-            task_id=job_id,
-            model_id=model_id,
-            timeout_ms=effective_timeout_ms,
-            wait=True,
-        )
+        fetch = adapter._suno_wait_fetch_audio
     else:
-        fn = lambda: adapter._suno_wait_fetch_any(
+        fetch = adapter._suno_wait_fetch_any
+
+    def fn():
+        return fetch(
             task_id=job_id,
             model_id=model_id,
             timeout_ms=effective_timeout_ms,
