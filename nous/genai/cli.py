@@ -344,15 +344,41 @@ def _run_job(
         effective_timeout_ms = 120_000
 
     modalities = set(output.modalities)
-    if modalities == {"text"}:
-        fetch = adapter._suno_wait_fetch_text
-    elif modalities == {"audio"}:
-        fetch = adapter._suno_wait_fetch_audio
-    else:
-        fetch = adapter._suno_wait_fetch_any
+    mid_l = model_id.lower().strip()
+    is_chirp_music = (
+        modalities == {"audio"} and mid_l.startswith("chirp-") and mid_l != "chirp-v3"
+    )
+    if not is_chirp_music:
+        raise SystemExit("--job-id only supports tuzi-web chirp-* audio tasks for now")
 
     def fn():
-        return fetch(
+        try:
+            host = adapter._base_host()
+            probe = adapter._suno_feed(
+                host=host,
+                ids=job_id,
+                timeout_ms=min(10_000, int(effective_timeout_ms)),
+            )
+            clips = probe.get("clips")
+            clip_found = bool(
+                isinstance(clips, list)
+                and any(
+                    isinstance(c, dict)
+                    and isinstance(c.get("id"), str)
+                    and c.get("id") == job_id
+                    for c in clips
+                )
+            )
+            if clip_found:
+                return adapter._suno_wait_feed_audio(
+                    clip_id=job_id,
+                    model_id=model_id,
+                    timeout_ms=effective_timeout_ms,
+                    wait=True,
+                )
+        except Exception:
+            pass
+        return adapter._suno_wait_fetch_audio(
             task_id=job_id,
             model_id=model_id,
             timeout_ms=effective_timeout_ms,

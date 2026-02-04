@@ -151,10 +151,10 @@ If you need to write to file, see `examples/demo.py` (`_write_binary()`), or reu
 uv run genai --model openai:gpt-4o-mini --prompt "Hello"
 uv run genai model available --all
 
-# Tuzi Suno music
-uv run genai --model tuzi-web:suno-v3 --prompt "Lo-fi hiphop beat, 30s" --no-wait
+# Tuzi Chirp music
+uv run genai --model tuzi-web:chirp-v3-5 --prompt "Lo-fi hiphop beat, 30s" --no-wait
 # ...later
-uv run genai --model tuzi-web:suno-v3 --job-id "<job_id>" --output-path demo_suno.mp3 --timeout-ms 600000
+uv run genai --model tuzi-web:chirp-v3-5 --job-id "<job_id>" --output-path demo_suno.mp3 --timeout-ms 600000
 
 # MCP Server
 uv run genai-mcp-server                    # Streamable HTTP: /mcp, SSE: /sse

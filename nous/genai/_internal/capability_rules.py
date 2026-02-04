@@ -63,7 +63,6 @@ _TTS_PREFIX: Final[str] = "tts-"
 _TTS_SUFFIX: Final[str] = "-tts"
 _VOICE_SUFFIXES: Final[tuple[str, ...]] = ("-voice", "_voice")
 _ADVANCED_VOICE_MODEL: Final[str] = "advanced-voice"
-_SUNO_PREFIX: Final[str] = "suno-"
 _CHIRP_PREFIX: Final[str] = "chirp-"
 
 _WHISPER_PREFIX: Final[str] = "whisper-"
@@ -223,7 +222,6 @@ def is_tts_model(model_id: str) -> bool:
     mid_l = _norm(model_id)
     return (
         mid_l.startswith(_TTS_PREFIX)
-        or mid_l.startswith(_SUNO_PREFIX)
         or mid_l.startswith(_CHIRP_PREFIX)
         or mid_l.endswith(_TTS_SUFFIX)
         or mid_l.endswith(_VOICE_SUFFIXES)

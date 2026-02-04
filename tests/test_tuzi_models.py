@@ -118,13 +118,13 @@ class TestTuziModels(unittest.TestCase):
             adapter.capabilities("sd3.5-large").output_modalities, {"image"}
         )
         self.assertEqual(adapter.capabilities("pika-1.5").output_modalities, {"video"})
-        self.assertEqual(adapter.capabilities("suno-v3").output_modalities, {"audio"})
+        self.assertEqual(adapter.capabilities("chirp-v3-5").output_modalities, {"audio"})
 
         cap = adapter.capabilities("whisper-large-v3")
         self.assertEqual(cap.input_modalities, {"audio"})
         self.assertEqual(cap.output_modalities, {"text"})
 
-    def test_tuzi_web_suno_v3_uses_suno_submit_music(self) -> None:
+    def test_tuzi_web_chirp_v3_5_uses_suno_submit_music(self) -> None:
         from nous.genai.providers import TuziAdapter
         from nous.genai.providers.openai import OpenAIAdapter
         from nous.genai.types import (
@@ -146,7 +146,7 @@ class TestTuziModels(unittest.TestCase):
         )
 
         req = GenerateRequest(
-            model="tuzi-web:suno-v3",
+            model="tuzi-web:chirp-v3-5",
             input=[Message(role="user", content=[Part.from_text("lofi hiphop beat")])],
             output=OutputSpec(
                 modalities=["audio"], audio=OutputAudioSpec(voice="alloy", format="mp3")
@@ -159,13 +159,10 @@ class TestTuziModels(unittest.TestCase):
         def fake_request_json(*, method, url, headers=None, json_body=None, **_kwargs):
             calls.append({"method": method, "url": url, "json_body": json_body})
             if url == "https://example.invalid/suno/submit/music":
-                return {"data": "task_123"}
-            if url == "https://example.invalid/suno/fetch/task_123":
                 return {
-                    "data": {
-                        "status": "SUCCESS",
-                        "data": {"audio_url": "https://example.invalid/a.mp3"},
-                    }
+                    "clips": [
+                        {"id": "clip_123", "audio_url": "https://example.invalid/a.mp3"}
+                    ]
                 }
             raise AssertionError(f"unexpected request_json call: {method} {url}")
 
@@ -182,6 +179,7 @@ class TestTuziModels(unittest.TestCase):
         self.assertEqual(
             getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3"
         )
+        self.assertEqual(len(calls), 1)
 
         submit = next(
             (
@@ -195,6 +193,246 @@ class TestTuziModels(unittest.TestCase):
         body = submit["json_body"]
         self.assertIsInstance(body, dict)
         self.assertEqual(body.get("mv"), "chirp-v3-5")
+
+    def test_tuzi_web_chirp_v4_sets_mv(self) -> None:
+        from nous.genai.providers import TuziAdapter
+        from nous.genai.providers.openai import OpenAIAdapter
+        from nous.genai.types import (
+            GenerateRequest,
+            Message,
+            OutputAudioSpec,
+            OutputSpec,
+            Part,
+        )
+
+        tuzi = TuziAdapter(
+            openai=OpenAIAdapter(
+                api_key="__demo__",
+                base_url="https://example.invalid/v1",
+                provider_name="tuzi-web",
+            ),
+            gemini=None,
+            anthropic=None,
+        )
+
+        req = GenerateRequest(
+            model="tuzi-web:chirp-v4",
+            input=[Message(role="user", content=[Part.from_text("lofi hiphop beat")])],
+            output=OutputSpec(
+                modalities=["audio"], audio=OutputAudioSpec(voice="alloy", format="mp3")
+            ),
+            wait=True,
+        )
+
+        calls: list[dict[str, object]] = []
+
+        def fake_request_json(*, method, url, headers=None, json_body=None, **_kwargs):
+            calls.append({"method": method, "url": url, "json_body": json_body})
+            if url == "https://example.invalid/suno/submit/music":
+                return {
+                    "clips": [
+                        {"id": "clip_123", "audio_url": "https://example.invalid/a.mp3"}
+                    ]
+                }
+            raise AssertionError(f"unexpected request_json call: {method} {url}")
+
+        with patch("nous.genai.providers.tuzi.request_json") as request_json:
+            request_json.side_effect = fake_request_json
+            resp = tuzi.generate(req, stream=False)
+
+        self.assertEqual(resp.status, "completed")
+        parts = [p for m in resp.output for p in m.content]
+        self.assertEqual(len(parts), 1)
+        self.assertEqual(parts[0].type, "audio")
+        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+
+        self.assertEqual(len(calls), 1)
+        body = calls[0]["json_body"]
+        self.assertIsInstance(body, dict)
+        self.assertEqual(body.get("mv"), "chirp-v4")
+
+    def test_tuzi_web_chirp_v3_5_waits_via_feed(self) -> None:
+        from nous.genai.providers import TuziAdapter
+        from nous.genai.providers.openai import OpenAIAdapter
+        from nous.genai.types import (
+            GenerateRequest,
+            Message,
+            OutputAudioSpec,
+            OutputSpec,
+            Part,
+        )
+
+        tuzi = TuziAdapter(
+            openai=OpenAIAdapter(
+                api_key="__demo__",
+                base_url="https://example.invalid/v1",
+                provider_name="tuzi-web",
+            ),
+            gemini=None,
+            anthropic=None,
+        )
+
+        req = GenerateRequest(
+            model="tuzi-web:chirp-v3-5",
+            input=[Message(role="user", content=[Part.from_text("lofi hiphop beat")])],
+            output=OutputSpec(
+                modalities=["audio"], audio=OutputAudioSpec(voice="alloy", format="mp3")
+            ),
+            wait=True,
+        )
+
+        calls: list[str] = []
+
+        def fake_request_json(*, method, url, headers=None, json_body=None, **_kwargs):
+            calls.append(url)
+            if url == "https://example.invalid/suno/submit/music":
+                return {"clips": [{"id": "clip_123"}]}
+            if url == "https://example.invalid/suno/feed?ids=clip_123":
+                return {
+                    "clips": [
+                        {
+                            "id": "clip_123",
+                            "status": "complete",
+                            "audio_url": "https://example.invalid/a.mp3",
+                        }
+                    ]
+                }
+            raise AssertionError(f"unexpected request_json call: {method} {url}")
+
+        with patch("nous.genai.providers.tuzi.request_json") as request_json:
+            request_json.side_effect = fake_request_json
+            resp = tuzi.generate(req, stream=False)
+
+        self.assertEqual(resp.status, "completed")
+        parts = [p for m in resp.output for p in m.content]
+        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            calls,
+            [
+                "https://example.invalid/suno/submit/music",
+                "https://example.invalid/suno/feed?ids=clip_123",
+            ],
+        )
+
+    def test_tuzi_web_chirp_v3_5_submit_music_prefers_task_id_fetch(self) -> None:
+        from nous.genai.providers import TuziAdapter
+        from nous.genai.providers.openai import OpenAIAdapter
+        from nous.genai.types import (
+            GenerateRequest,
+            Message,
+            OutputAudioSpec,
+            OutputSpec,
+            Part,
+        )
+
+        tuzi = TuziAdapter(
+            openai=OpenAIAdapter(
+                api_key="__demo__",
+                base_url="https://example.invalid/v1",
+                provider_name="tuzi-web",
+            ),
+            gemini=None,
+            anthropic=None,
+        )
+
+        req = GenerateRequest(
+            model="tuzi-web:chirp-v3-5",
+            input=[Message(role="user", content=[Part.from_text("lofi hiphop beat")])],
+            output=OutputSpec(
+                modalities=["audio"], audio=OutputAudioSpec(voice="alloy", format="mp3")
+            ),
+            wait=True,
+        )
+
+        calls: list[str] = []
+
+        def fake_request_json(*, method, url, headers=None, json_body=None, **_kwargs):
+            calls.append(url)
+            if url == "https://example.invalid/suno/submit/music":
+                return {"id": "task_123", "clips": [{"id": "clip_123", "audio_url": ""}]}
+            if url == "https://example.invalid/suno/fetch/task_123":
+                return {
+                    "data": {
+                        "status": "SUCCESS",
+                        "data": {"audio_url": "https://example.invalid/a.mp3"},
+                    }
+                }
+            raise AssertionError(f"unexpected request_json call: {method} {url}")
+
+        with patch("nous.genai.providers.tuzi.request_json") as request_json:
+            request_json.side_effect = fake_request_json
+            resp = tuzi.generate(req, stream=False)
+
+        self.assertEqual(resp.status, "completed")
+        parts = [p for m in resp.output for p in m.content]
+        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            calls,
+            [
+                "https://example.invalid/suno/submit/music",
+                "https://example.invalid/suno/fetch/task_123",
+            ],
+        )
+
+    def test_tuzi_web_suno_submit_music_falls_back_to_fetch(self) -> None:
+        from nous.genai.providers import TuziAdapter
+        from nous.genai.providers.openai import OpenAIAdapter
+        from nous.genai.types import (
+            GenerateRequest,
+            Message,
+            OutputAudioSpec,
+            OutputSpec,
+            Part,
+        )
+
+        tuzi = TuziAdapter(
+            openai=OpenAIAdapter(
+                api_key="__demo__",
+                base_url="https://example.invalid/v1",
+                provider_name="tuzi-web",
+            ),
+            gemini=None,
+            anthropic=None,
+        )
+
+        req = GenerateRequest(
+            model="tuzi-web:chirp-v4",
+            input=[Message(role="user", content=[Part.from_text("lofi hiphop beat")])],
+            output=OutputSpec(
+                modalities=["audio"], audio=OutputAudioSpec(voice="alloy", format="mp3")
+            ),
+            wait=True,
+        )
+
+        calls: list[str] = []
+
+        def fake_request_json(*, method, url, headers=None, json_body=None, **_kwargs):
+            calls.append(url)
+            if url == "https://example.invalid/suno/submit/music":
+                return {"id": "task_123"}
+            if url == "https://example.invalid/suno/fetch/task_123":
+                return {
+                    "data": {
+                        "status": "SUCCESS",
+                        "data": {"audio_url": "https://example.invalid/a.mp3"},
+                    }
+                }
+            raise AssertionError(f"unexpected request_json call: {method} {url}")
+
+        with patch("nous.genai.providers.tuzi.request_json") as request_json:
+            request_json.side_effect = fake_request_json
+            resp = tuzi.generate(req, stream=False)
+
+        self.assertEqual(resp.status, "completed")
+        parts = [p for m in resp.output for p in m.content]
+        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            calls,
+            [
+                "https://example.invalid/suno/submit/music",
+                "https://example.invalid/suno/fetch/task_123",
+            ],
+        )
 
     def test_openai_images_supports_tuzi_wrapped_response(self) -> None:
         from nous.genai.providers.openai import OpenAIAdapter
@@ -434,7 +672,7 @@ class TestTuziModels(unittest.TestCase):
         ):
             suno_fetch.return_value = {"status": "PENDING", "data": {}}
             resp = tuzi._suno_wait_fetch_audio(
-                task_id="task_123", model_id="suno-v3", timeout_ms=1_000, wait=True
+                task_id="task_123", model_id="chirp-v3-5", timeout_ms=1_000, wait=True
             )
 
         self.assertEqual(resp.status, "running")
@@ -442,3 +680,29 @@ class TestTuziModels(unittest.TestCase):
         self.assertEqual(resp.job.job_id, "task_123")
         self.assertEqual(resp.job.last_status, "PENDING")
         self.assertIsNone(resp.job.last_detail)
+
+    def test_tuzi_suno_wait_fetch_audio_accepts_complete_status(self) -> None:
+        from nous.genai.providers import TuziAdapter
+        from nous.genai.providers.openai import OpenAIAdapter
+
+        openai_adapter = OpenAIAdapter(
+            api_key="test_key",
+            base_url="https://api.tu-zi.com/v1",
+            provider_name="tuzi-web",
+        )
+        tuzi = TuziAdapter(openai=openai_adapter, gemini=None, anthropic=None)
+
+        with patch("nous.genai.providers.tuzi.TuziAdapter._suno_fetch") as suno_fetch:
+            suno_fetch.return_value = {
+                "status": "complete",
+                "data": {"audio_url": "https://cdn1.suno.ai/abc.mp3"},
+            }
+            resp = tuzi._suno_wait_fetch_audio(
+                task_id="task_123", model_id="chirp-v4", timeout_ms=10_000, wait=True
+            )
+
+        self.assertEqual(resp.status, "completed")
+        parts = [p for m in resp.output for p in m.content]
+        self.assertEqual(len(parts), 1)
+        self.assertEqual(parts[0].type, "audio")
+        self.assertEqual(getattr(parts[0].source, "url", None), "https://cdn1.suno.ai/abc.mp3")

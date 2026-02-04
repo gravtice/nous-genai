@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import urllib.parse
 from dataclasses import dataclass, replace
 from typing import Any, Iterator
 from uuid import uuid4
@@ -52,34 +53,6 @@ _AUDIO_URL_RE = re.compile(
     r"https?://[^\s\"'<>]+?\.(?:mp3|wav|m4a|aac|flac|ogg|opus)(?:\?[^\s\"'<>]*)?",
     re.IGNORECASE,
 )
-
-_SUNO_WORKFLOW_MODELS = frozenset(
-    {
-        "suno-all-stems",
-        "suno-continue",
-        "suno-continue-uploaded",
-        "suno-infill",
-        "suno-infill-uploaded",
-        "suno-midi",
-        "suno-overpainting",
-        "suno-remix",
-        "suno-remix-uploaded",
-        "suno-rewrite",
-        "suno-tags",
-        "suno-vocal-stems",
-        "suno_act_midi",
-        "suno_act_mp4",
-        "suno_act_stems",
-        "suno_act_tags",
-        "suno_act_timing",
-        "suno_act_wav",
-        "suno_concat",
-        "suno_persona_create",
-        "suno_uploads",
-    }
-)
-
-_SUNO_MUSIC_MODELS = frozenset({"suno_music", "suno-v3"})
 
 
 def _extract_first_url(pattern: re.Pattern[str], text: str) -> str | None:
@@ -137,6 +110,10 @@ class TuziAdapter:
 
     def capabilities(self, model_id: str) -> Capability:
         mid_l = model_id.lower().strip()
+        if mid_l.startswith(("suno-", "suno_")):
+            raise invalid_request_error(
+                "suno model ids are not supported; use chirp-* (e.g. chirp-v3-5)"
+            )
         if mid_l in {"kling_image", "seededit"}:
             return Capability(
                 input_modalities={"text", "image"},
@@ -146,30 +123,10 @@ class TuziAdapter:
                 supports_tools=False,
                 supports_json_schema=False,
             )
-        if mid_l in _SUNO_MUSIC_MODELS or (
-            mid_l.startswith("chirp-") and mid_l != "chirp-v3"
-        ):
+        if mid_l.startswith("chirp-") and mid_l != "chirp-v3":
             return Capability(
                 input_modalities={"text"},
                 output_modalities={"audio"},
-                supports_stream=False,
-                supports_job=True,
-                supports_tools=False,
-                supports_json_schema=False,
-            )
-        if mid_l in _SUNO_WORKFLOW_MODELS:
-            return Capability(
-                input_modalities={"text"},
-                output_modalities={"audio"},
-                supports_stream=False,
-                supports_job=True,
-                supports_tools=False,
-                supports_json_schema=False,
-            )
-        if mid_l == "suno_lyrics":
-            return Capability(
-                input_modalities={"text"},
-                output_modalities={"text"},
                 supports_stream=False,
                 supports_job=True,
                 supports_tools=False,
@@ -192,6 +149,11 @@ class TuziAdapter:
         model_id = request.model_id()
         mid_l = model_id.lower().strip()
         modalities = set(request.output.modalities)
+
+        if mid_l.startswith(("suno-", "suno_")):
+            raise invalid_request_error(
+                "suno model ids are not supported; use chirp-* (e.g. chirp-v3-5)"
+            )
 
         if modalities == {"video"} and mid_l.startswith("pika-"):
             raise not_supported_error(
@@ -233,27 +195,10 @@ class TuziAdapter:
                 return self._kling_text2image(request, model_id=model_id)
             return self._seededit(request, model_id=model_id)
 
-        if modalities == {"text"} and mid_l == "suno_lyrics":
+        if modalities == {"audio"} and mid_l.startswith("chirp-") and mid_l != "chirp-v3":
             if stream:
                 raise invalid_request_error(
-                    "suno lyrics generation does not support streaming"
-                )
-            return self._suno_lyrics(request)
-
-        if modalities == {"audio"} and mid_l in _SUNO_WORKFLOW_MODELS:
-            if stream:
-                raise invalid_request_error(
-                    "suno workflow endpoints do not support streaming"
-                )
-            return self._suno_workflow(request, model_id=model_id)
-
-        if modalities == {"audio"} and (
-            mid_l in _SUNO_MUSIC_MODELS
-            or (mid_l.startswith("chirp-") and mid_l != "chirp-v3")
-        ):
-            if stream:
-                raise invalid_request_error(
-                    "suno music generation does not support streaming"
+                    "chirp music generation does not support streaming"
                 )
             return self._suno_music(request, model_id=model_id)
 
@@ -635,45 +580,28 @@ class TuziAdapter:
             job=JobInfo(job_id=task_id, poll_after_ms=1_000),
         )
 
-    def _suno_lyrics(self, request: GenerateRequest) -> GenerateResponse:
-        prompt = self._single_text_prompt(request)
-        host = self._base_host()
-        obj = request_json(
-            method="POST",
-            url=f"{host}/suno/submit/lyrics",
-            headers=self._bearer_headers(),
-            json_body={"prompt": prompt},
-            timeout_ms=max(request.params.timeout_ms or 60_000, 60_000),
-            proxy_url=self.proxy_url,
-        )
-        task_id = obj.get("data")
-        if not isinstance(task_id, str) or not task_id:
-            raise provider_error("suno lyrics submit missing task id")
-        return self._suno_wait_fetch_text(
-            task_id=task_id,
-            model_id="suno_lyrics",
-            timeout_ms=request.params.timeout_ms,
-            wait=request.wait,
-        )
-
     def _suno_music(
         self, request: GenerateRequest, *, model_id: str
     ) -> GenerateResponse:
         prompt = self._single_text_prompt(request)
         host = self._base_host()
         mid_l = model_id.lower().strip()
-        if mid_l.startswith("chirp-"):
-            mv = model_id
-        else:
-            mv = "chirp-v3-5"
-        body: dict[str, object] = {
-            "prompt": prompt,
-            "tags": "",
-            "mv": mv,
-            "title": "suno",
-            "infill_start_s": None,
-            "infill_end_s": None,
-        }
+        if not (mid_l.startswith("chirp-") and mid_l != "chirp-v3"):
+            raise invalid_request_error(
+                f"unsupported music model_id: {model_id} (use chirp-*, e.g. chirp-v3-5)"
+            )
+        body: dict[str, object] = {"prompt": prompt, "mv": model_id}
+        opts = request.provider_options.get("tuzi-web")
+        if isinstance(opts, dict):
+            for k, v in opts.items():
+                if k in body:
+                    raise invalid_request_error(f"provider_options cannot override {k}")
+                if k == "tags" and isinstance(v, list) and all(
+                    isinstance(x, str) and x.strip() for x in v
+                ):
+                    body["tags"] = ",".join([x.strip() for x in v])
+                    continue
+                body[k] = v
         obj = request_json(
             method="POST",
             url=f"{host}/suno/submit/music",
@@ -682,67 +610,181 @@ class TuziAdapter:
             timeout_ms=max(request.params.timeout_ms or 60_000, 60_000),
             proxy_url=self.proxy_url,
         )
-        task_id = obj.get("data")
-        if not isinstance(task_id, str) or not task_id:
-            raise provider_error("suno music submit missing task id")
-        return self._suno_wait_fetch_audio(
-            task_id=task_id,
-            model_id=model_id,
-            timeout_ms=request.params.timeout_ms,
-            wait=request.wait,
-        )
 
-    def _suno_workflow_endpoint(self, model_id: str) -> str:
-        mid_l = model_id.lower().strip()
-        if mid_l == "suno_concat":
-            return "/suno/submit/concat"
-        if mid_l == "suno_uploads":
-            return "/suno/submit/upload"
-        if mid_l == "suno_persona_create":
-            return "/suno/submit/persona-create"
-        if mid_l.startswith("suno_act_"):
-            suffix = mid_l[len("suno_act_") :]
-            if not suffix:
-                raise invalid_request_error("invalid suno_act model id")
-            return f"/suno/submit/act-{suffix}"
-        if mid_l.startswith("suno-"):
-            suffix = mid_l[len("suno-") :]
-            if not suffix:
-                raise invalid_request_error("invalid suno model id")
-            return f"/suno/submit/{suffix}"
-        raise invalid_request_error(f"unsupported suno workflow model: {model_id}")
+        clip_id: str | None = None
+        audio_url: str | None = None
+        data = obj.get("data")
+        sources: list[dict[str, object]] = [obj]
+        if isinstance(data, dict):
+            sources.append(data)
+        for src in sources:
+            clips = src.get("clips")
+            if not isinstance(clips, list):
+                continue
+            for clip in clips:
+                if not isinstance(clip, dict):
+                    continue
+                if clip_id is None:
+                    cid = clip.get("id")
+                    if isinstance(cid, str) and cid.strip():
+                        clip_id = cid.strip()
+                if audio_url is None:
+                    au = clip.get("audio_url")
+                    if isinstance(au, str) and au.strip():
+                        audio_url = au.strip()
+                if clip_id is not None and audio_url is not None:
+                    break
+            if clip_id is not None:
+                break
 
-    def _suno_workflow(
-        self, request: GenerateRequest, *, model_id: str
-    ) -> GenerateResponse:
-        host = self._base_host()
-        endpoint = self._suno_workflow_endpoint(model_id)
+        if request.wait and audio_url:
+            part = Part(
+                type="audio",
+                mime_type="audio/mpeg",
+                source=PartSourceUrl(url=audio_url),
+            )
+            return GenerateResponse(
+                id=f"sdk_{uuid4().hex}",
+                provider="tuzi-web",
+                model=f"tuzi-web:{model_id}",
+                status="completed",
+                output=[Message(role="assistant", content=[part])],
+            )
 
-        body: dict[str, object] = {}
-        opts = request.provider_options.get("tuzi-web")
-        if isinstance(opts, dict):
-            body.update(opts)
+        task_id: str | None = None
+        if isinstance(data, str) and data.strip():
+            task_id = data.strip()
+        for src in sources:
+            if task_id is not None:
+                break
+            for key in ("task_id", "id"):
+                v = src.get(key)
+                if isinstance(v, str) and v.strip():
+                    task_id = v.strip()
+                    break
+        if task_id is not None:
+            return self._suno_wait_fetch_audio(
+                task_id=task_id,
+                model_id=model_id,
+                timeout_ms=request.params.timeout_ms,
+                wait=request.wait,
+            )
 
-        prompt = self._text_prompt_or_none(request)
-        if prompt and "prompt" not in body:
-            body["prompt"] = prompt
+        if clip_id is not None:
+            return self._suno_wait_feed_audio(
+                clip_id=clip_id,
+                model_id=model_id,
+                timeout_ms=request.params.timeout_ms,
+                wait=request.wait,
+            )
 
+        keys = ",".join(sorted([k for k in obj.keys() if isinstance(k, str)])) or "<none>"
+        raise provider_error(f"suno music submit missing clip id (keys={keys})")
+
+    def _suno_feed(
+        self, *, host: str, ids: str, timeout_ms: int | None
+    ) -> dict[str, object]:
+        qs = urllib.parse.urlencode({"ids": ids})
         obj = request_json(
-            method="POST",
-            url=f"{host}{endpoint}",
+            method="GET",
+            url=f"{host}/suno/feed?{qs}",
             headers=self._bearer_headers(),
-            json_body=body,
-            timeout_ms=max(request.params.timeout_ms or 60_000, 60_000),
+            json_body=None,
+            timeout_ms=timeout_ms,
             proxy_url=self.proxy_url,
         )
-        task_id = obj.get("data")
-        if not isinstance(task_id, str) or not task_id:
-            raise provider_error("suno submit missing task id")
-        return self._suno_wait_fetch_any(
-            task_id=task_id,
-            model_id=model_id,
-            timeout_ms=request.params.timeout_ms,
-            wait=request.wait,
+        if not isinstance(obj, dict):
+            raise provider_error("suno feed invalid response", retryable=True)
+        return obj
+
+    def _suno_wait_feed_audio(
+        self, *, clip_id: str, model_id: str, timeout_ms: int | None, wait: bool
+    ) -> GenerateResponse:
+        if not wait:
+            return GenerateResponse(
+                id=f"sdk_{uuid4().hex}",
+                provider="tuzi-web",
+                model=f"tuzi-web:{model_id}",
+                status="running",
+                job=JobInfo(job_id=clip_id, poll_after_ms=2_000),
+            )
+
+        host = self._base_host()
+        budget_ms = 120_000 if timeout_ms is None else timeout_ms
+        deadline = time.time() + max(1, budget_ms) / 1000.0
+        last_status: str | None = None
+        last_detail: str | None = None
+        while True:
+            remaining_ms = int((deadline - time.time()) * 1000)
+            if remaining_ms <= 0:
+                break
+
+            data = self._suno_feed(
+                host=host, ids=clip_id, timeout_ms=min(30_000, remaining_ms)
+            )
+            clips = data.get("clips")
+            clip: dict[str, object] | None = None
+            if isinstance(clips, list):
+                for c in clips:
+                    if not isinstance(c, dict):
+                        continue
+                    cid = c.get("id")
+                    if isinstance(cid, str) and cid.strip() == clip_id:
+                        clip = c
+                        break
+                if clip is None and clips and isinstance(clips[0], dict):
+                    clip = clips[0]
+
+            if clip is not None:
+                raw_status = clip.get("status")
+                status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+                if status:
+                    last_status = status
+                elif raw_status is not None:
+                    last_status = str(raw_status)
+
+                au = clip.get("audio_url")
+                if isinstance(au, str) and au.strip():
+                    part = Part(
+                        type="audio",
+                        mime_type="audio/mpeg",
+                        source=PartSourceUrl(url=au.strip()),
+                    )
+                    return GenerateResponse(
+                        id=f"sdk_{uuid4().hex}",
+                        provider="tuzi-web",
+                        model=f"tuzi-web:{model_id}",
+                        status="completed",
+                        output=[Message(role="assistant", content=[part])],
+                    )
+
+                if status in {"FAIL", "FAILED", "ERROR"}:
+                    meta = clip.get("metadata")
+                    if isinstance(meta, dict):
+                        err = meta.get("error_message")
+                        if isinstance(err, str) and err:
+                            last_detail = err
+                    raise provider_error(f"suno feed task failed: {last_detail or ''}".strip())
+
+                meta = clip.get("metadata")
+                if isinstance(meta, dict):
+                    err = meta.get("error_message")
+                    if isinstance(err, str) and err:
+                        last_detail = err
+
+            time.sleep(min(2.0, max(0.0, deadline - time.time())))
+
+        return GenerateResponse(
+            id=f"sdk_{uuid4().hex}",
+            provider="tuzi-web",
+            model=f"tuzi-web:{model_id}",
+            status="running",
+            job=JobInfo(
+                job_id=clip_id,
+                poll_after_ms=2_000,
+                last_status=last_status,
+                last_detail=last_detail,
+            ),
         )
 
     def _suno_fetch(
@@ -760,72 +802,6 @@ class TuziAdapter:
         if not isinstance(data, dict):
             raise provider_error("suno fetch missing data")
         return data
-
-    def _suno_wait_fetch_text(
-        self, *, task_id: str, model_id: str, timeout_ms: int | None, wait: bool
-    ) -> GenerateResponse:
-        if not wait:
-            return GenerateResponse(
-                id=f"sdk_{uuid4().hex}",
-                provider="tuzi-web",
-                model=f"tuzi-web:{model_id}",
-                status="running",
-                job=JobInfo(job_id=task_id, poll_after_ms=2_000),
-            )
-        host = self._base_host()
-        budget_ms = 60_000 if timeout_ms is None else timeout_ms
-        deadline = time.time() + max(1, budget_ms) / 1000.0
-        last_status: str | None = None
-        last_detail: str | None = None
-        while True:
-            remaining_ms = int((deadline - time.time()) * 1000)
-            if remaining_ms <= 0:
-                break
-            data = self._suno_fetch(
-                host=host, task_id=task_id, timeout_ms=min(30_000, remaining_ms)
-            )
-            raw_status = data.get("status")
-            status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
-            if status:
-                last_status = status
-            elif raw_status is not None:
-                last_status = str(raw_status)
-            fail_reason = data.get("fail_reason")
-            if isinstance(fail_reason, str) and fail_reason:
-                last_detail = fail_reason
-            if status in {"SUCCESS", "SUCCEEDED"}:
-                inner = data.get("data")
-                if isinstance(inner, dict):
-                    text = inner.get("text")
-                    if isinstance(text, str):
-                        return GenerateResponse(
-                            id=f"sdk_{uuid4().hex}",
-                            provider="tuzi-web",
-                            model=f"tuzi-web:{model_id}",
-                            status="completed",
-                            output=[
-                                Message(
-                                    role="assistant", content=[Part.from_text(text)]
-                                )
-                            ],
-                        )
-                raise provider_error("suno lyrics succeeded but missing text")
-            if status in {"FAIL", "FAILED", "ERROR"}:
-                raise provider_error(f"suno task failed: {data.get('fail_reason')}")
-            time.sleep(min(2.0, max(0.0, deadline - time.time())))
-
-        return GenerateResponse(
-            id=f"sdk_{uuid4().hex}",
-            provider="tuzi-web",
-            model=f"tuzi-web:{model_id}",
-            status="running",
-            job=JobInfo(
-                job_id=task_id,
-                poll_after_ms=2_000,
-                last_status=last_status,
-                last_detail=last_detail,
-            ),
-        )
 
     def _suno_wait_fetch_audio(
         self, *, task_id: str, model_id: str, timeout_ms: int | None, wait: bool
@@ -859,151 +835,45 @@ class TuziAdapter:
             fail_reason = data.get("fail_reason")
             if isinstance(fail_reason, str) and fail_reason:
                 last_detail = fail_reason
-            if status in {"SUCCESS", "SUCCEEDED"}:
-                inner = data.get("data")
+
+            def _collect_urls(obj: object) -> list[str]:
                 urls: list[str] = []
-                if isinstance(inner, dict):
-                    u = inner.get("audio_url")
-                    if isinstance(u, str) and u:
-                        urls.append(u)
-                    clips = inner.get("clips")
+                if isinstance(obj, dict):
+                    u = obj.get("audio_url")
+                    if isinstance(u, str) and u.strip():
+                        urls.append(u.strip())
+                    clips = obj.get("clips")
                     if isinstance(clips, list):
                         for clip in clips:
-                            if not isinstance(clip, dict):
-                                continue
-                            u = clip.get("audio_url")
-                            if isinstance(u, str) and u:
-                                urls.append(u)
-                elif isinstance(inner, list):
-                    for clip in inner:
-                        if not isinstance(clip, dict):
-                            continue
-                        u = clip.get("audio_url")
-                        if isinstance(u, str) and u:
-                            urls.append(u)
-                if not urls:
-                    blob = json.dumps(inner, ensure_ascii=False)
-                    u = _extract_first_url(_AUDIO_URL_RE, blob)
-                    if u:
-                        urls.append(u)
-                if urls:
-                    part = Part(
-                        type="audio",
-                        mime_type="audio/mpeg",
-                        source=PartSourceUrl(url=urls[0]),
-                    )
-                    return GenerateResponse(
-                        id=f"sdk_{uuid4().hex}",
-                        provider="tuzi-web",
-                        model=f"tuzi-web:{model_id}",
-                        status="completed",
-                        output=[Message(role="assistant", content=[part])],
-                    )
-                raise provider_error("suno music succeeded but missing audio url")
-            if status in {"FAIL", "FAILED", "ERROR"}:
-                raise provider_error(f"suno task failed: {data.get('fail_reason')}")
-            time.sleep(min(2.0, max(0.0, deadline - time.time())))
+                            urls.extend(_collect_urls(clip))
+                elif isinstance(obj, list):
+                    for item in obj:
+                        urls.extend(_collect_urls(item))
+                return urls
 
-        return GenerateResponse(
-            id=f"sdk_{uuid4().hex}",
-            provider="tuzi-web",
-            model=f"tuzi-web:{model_id}",
-            status="running",
-            job=JobInfo(
-                job_id=task_id,
-                poll_after_ms=2_000,
-                last_status=last_status,
-                last_detail=last_detail,
-            ),
-        )
-
-    def _suno_wait_fetch_any(
-        self, *, task_id: str, model_id: str, timeout_ms: int | None, wait: bool
-    ) -> GenerateResponse:
-        if not wait:
-            return GenerateResponse(
-                id=f"sdk_{uuid4().hex}",
-                provider="tuzi-web",
-                model=f"tuzi-web:{model_id}",
-                status="running",
-                job=JobInfo(job_id=task_id, poll_after_ms=2_000),
-            )
-        host = self._base_host()
-        budget_ms = 120_000 if timeout_ms is None else timeout_ms
-        deadline = time.time() + max(1, budget_ms) / 1000.0
-        last_status: str | None = None
-        last_detail: str | None = None
-        while True:
-            remaining_ms = int((deadline - time.time()) * 1000)
-            if remaining_ms <= 0:
-                break
-            data = self._suno_fetch(
-                host=host, task_id=task_id, timeout_ms=min(30_000, remaining_ms)
-            )
-            raw_status = data.get("status")
-            status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
-            if status:
-                last_status = status
-            elif raw_status is not None:
-                last_status = str(raw_status)
-            fail_reason = data.get("fail_reason")
-            if isinstance(fail_reason, str) and fail_reason:
-                last_detail = fail_reason
-            if status in {"SUCCESS", "SUCCEEDED"}:
-                inner = data.get("data")
-                parts: list[Part] = []
-                blob = json.dumps(inner, ensure_ascii=False)
-
-                audio_urls: list[str] = []
-                if isinstance(inner, dict):
-                    clips = inner.get("clips")
-                    if isinstance(clips, list):
-                        for clip in clips:
-                            if not isinstance(clip, dict):
-                                continue
-                            u = clip.get("audio_url")
-                            if isinstance(u, str) and u:
-                                audio_urls.append(u)
-
-                    text = inner.get("text")
-                    if isinstance(text, str) and text:
-                        parts.append(Part.from_text(text))
-
-                if not audio_urls:
-                    u = _extract_first_url(_AUDIO_URL_RE, blob)
-                    if u:
-                        audio_urls.append(u)
-                for u in audio_urls:
-                    parts.append(
-                        Part(
-                            type="audio",
-                            mime_type="audio/mpeg",
-                            source=PartSourceUrl(url=u),
-                        )
-                    )
-
-                mp4 = _extract_first_url(_MP4_URL_RE, blob)
-                if mp4:
-                    parts.append(
-                        Part(
-                            type="video",
-                            mime_type="video/mp4",
-                            source=PartSourceUrl(url=mp4),
-                        )
-                    )
-
-                if not parts:
-                    parts.append(
-                        Part.from_text(blob if blob and blob != "null" else "{}")
-                    )
-
+            inner = data.get("data")
+            urls = _collect_urls(data) + _collect_urls(inner)
+            if not urls:
+                blob = json.dumps(inner if inner is not None else data, ensure_ascii=False)
+                u = _extract_first_url(_AUDIO_URL_RE, blob)
+                if u:
+                    urls.append(u)
+            if urls:
+                part = Part(
+                    type="audio",
+                    mime_type="audio/mpeg",
+                    source=PartSourceUrl(url=urls[0]),
+                )
                 return GenerateResponse(
                     id=f"sdk_{uuid4().hex}",
                     provider="tuzi-web",
                     model=f"tuzi-web:{model_id}",
                     status="completed",
-                    output=[Message(role="assistant", content=parts)],
+                    output=[Message(role="assistant", content=[part])],
                 )
+
+            if status in {"SUCCESS", "SUCCEEDED", "COMPLETE", "COMPLETED", "DONE"}:
+                raise provider_error("suno music succeeded but missing audio url")
             if status in {"FAIL", "FAILED", "ERROR"}:
                 raise provider_error(f"suno task failed: {data.get('fail_reason')}")
             time.sleep(min(2.0, max(0.0, deadline - time.time())))
