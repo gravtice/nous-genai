@@ -251,6 +251,14 @@ def main(argv: list[str] | None = None) -> None:
             if resp.job and resp.job.job_id:
                 print(resp.job.job_id)
                 if resp.status == "running":
+                    status_note = ""
+                    if resp.job.last_status:
+                        status_note += f" upstream_status={resp.job.last_status}"
+                    if resp.job.last_detail:
+                        d = resp.job.last_detail
+                        if len(d) > 200:
+                            d = d[:200] + "..."
+                        status_note += f" fail_reason={d}"
                     if not req.wait:
                         print(
                             "[INFO] 已提交任务（未等待完成）；已返回 job_id。"
@@ -270,7 +278,8 @@ def main(argv: list[str] | None = None) -> None:
                         )
                         print(
                             f"[INFO] 任务仍在运行（等待 {elapsed_s:.1f}s，可能已超时 {timeout_note}）；已返回 job_id。"
-                            f"可用 --job-id {resp.job.job_id} 继续轮询/下载，或增大 --timeout-ms 重试。",
+                            f"可用 --job-id {resp.job.job_id} 继续轮询/下载，或增大 --timeout-ms 重试。"
+                            f"{status_note}",
                             file=sys.stderr,
                         )
                     if args.output_path:
@@ -357,6 +366,14 @@ def _run_job(
         if resp.job and resp.job.job_id:
             print(resp.job.job_id)
             if resp.status == "running":
+                status_note = ""
+                if resp.job.last_status:
+                    status_note += f" upstream_status={resp.job.last_status}"
+                if resp.job.last_detail:
+                    d = resp.job.last_detail
+                    if len(d) > 200:
+                        d = d[:200] + "..."
+                    status_note += f" fail_reason={d}"
                 timeout_note = (
                     f"{effective_timeout_ms}ms"
                     if isinstance(effective_timeout_ms, int)
@@ -364,7 +381,7 @@ def _run_job(
                 )
                 print(
                     f"[INFO] 任务仍在运行（等待 {elapsed_s:.1f}s，可能已超时 {timeout_note}）；已返回 job_id。"
-                    "可稍后重试 --job-id。",
+                    f"可稍后重试 --job-id。{status_note}",
                     file=sys.stderr,
                 )
                 if output_path:

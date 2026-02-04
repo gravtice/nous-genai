@@ -339,6 +339,8 @@ class JobInfo:
     job_id: str
     poll_after_ms: int = 1_000
     expires_at: str | None = None
+    last_status: str | None = None
+    last_detail: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

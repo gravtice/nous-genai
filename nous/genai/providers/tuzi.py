@@ -775,6 +775,8 @@ class TuziAdapter:
         host = self._base_host()
         budget_ms = 60_000 if timeout_ms is None else timeout_ms
         deadline = time.time() + max(1, budget_ms) / 1000.0
+        last_status: str | None = None
+        last_detail: str | None = None
         while True:
             remaining_ms = int((deadline - time.time()) * 1000)
             if remaining_ms <= 0:
@@ -784,6 +786,13 @@ class TuziAdapter:
             )
             raw_status = data.get("status")
             status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+            if status:
+                last_status = status
+            elif raw_status is not None:
+                last_status = str(raw_status)
+            fail_reason = data.get("fail_reason")
+            if isinstance(fail_reason, str) and fail_reason:
+                last_detail = fail_reason
             if status in {"SUCCESS", "SUCCEEDED"}:
                 inner = data.get("data")
                 if isinstance(inner, dict):
@@ -810,7 +819,12 @@ class TuziAdapter:
             provider="tuzi-web",
             model=f"tuzi-web:{model_id}",
             status="running",
-            job=JobInfo(job_id=task_id, poll_after_ms=2_000),
+            job=JobInfo(
+                job_id=task_id,
+                poll_after_ms=2_000,
+                last_status=last_status,
+                last_detail=last_detail,
+            ),
         )
 
     def _suno_wait_fetch_audio(
@@ -827,6 +841,8 @@ class TuziAdapter:
         host = self._base_host()
         budget_ms = 120_000 if timeout_ms is None else timeout_ms
         deadline = time.time() + max(1, budget_ms) / 1000.0
+        last_status: str | None = None
+        last_detail: str | None = None
         while True:
             remaining_ms = int((deadline - time.time()) * 1000)
             if remaining_ms <= 0:
@@ -836,6 +852,13 @@ class TuziAdapter:
             )
             raw_status = data.get("status")
             status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+            if status:
+                last_status = status
+            elif raw_status is not None:
+                last_status = str(raw_status)
+            fail_reason = data.get("fail_reason")
+            if isinstance(fail_reason, str) and fail_reason:
+                last_detail = fail_reason
             if status in {"SUCCESS", "SUCCEEDED"}:
                 inner = data.get("data")
                 urls: list[str] = []
@@ -886,7 +909,12 @@ class TuziAdapter:
             provider="tuzi-web",
             model=f"tuzi-web:{model_id}",
             status="running",
-            job=JobInfo(job_id=task_id, poll_after_ms=2_000),
+            job=JobInfo(
+                job_id=task_id,
+                poll_after_ms=2_000,
+                last_status=last_status,
+                last_detail=last_detail,
+            ),
         )
 
     def _suno_wait_fetch_any(
@@ -903,6 +931,8 @@ class TuziAdapter:
         host = self._base_host()
         budget_ms = 120_000 if timeout_ms is None else timeout_ms
         deadline = time.time() + max(1, budget_ms) / 1000.0
+        last_status: str | None = None
+        last_detail: str | None = None
         while True:
             remaining_ms = int((deadline - time.time()) * 1000)
             if remaining_ms <= 0:
@@ -912,6 +942,13 @@ class TuziAdapter:
             )
             raw_status = data.get("status")
             status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+            if status:
+                last_status = status
+            elif raw_status is not None:
+                last_status = str(raw_status)
+            fail_reason = data.get("fail_reason")
+            if isinstance(fail_reason, str) and fail_reason:
+                last_detail = fail_reason
             if status in {"SUCCESS", "SUCCEEDED"}:
                 inner = data.get("data")
                 parts: list[Part] = []
@@ -976,7 +1013,12 @@ class TuziAdapter:
             provider="tuzi-web",
             model=f"tuzi-web:{model_id}",
             status="running",
-            job=JobInfo(job_id=task_id, poll_after_ms=2_000),
+            job=JobInfo(
+                job_id=task_id,
+                poll_after_ms=2_000,
+                last_status=last_status,
+                last_detail=last_detail,
+            ),
         )
 
     def _deepsearch(

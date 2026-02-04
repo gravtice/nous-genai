@@ -402,3 +402,43 @@ class TestTuziModels(unittest.TestCase):
         self.assertEqual(
             getattr(parts[0].source, "url", None), "https://cdn1.suno.ai/abc.mp3"
         )
+
+    def test_tuzi_suno_wait_fetch_audio_timeout_exposes_last_status(self) -> None:
+        from nous.genai.providers import TuziAdapter
+        from nous.genai.providers.openai import OpenAIAdapter
+
+        openai_adapter = OpenAIAdapter(
+            api_key="test_key",
+            base_url="https://api.tu-zi.com/v1",
+            provider_name="tuzi-web",
+        )
+        tuzi = TuziAdapter(openai=openai_adapter, gemini=None, anthropic=None)
+
+        class FakeTime:
+            def __init__(self) -> None:
+                self.t = 0.0
+
+            def time(self) -> float:
+                self.t += 0.5
+                return self.t
+
+            def sleep(self, seconds: float) -> None:
+                self.t += float(seconds)
+
+        fake = FakeTime()
+
+        with (
+            patch("nous.genai.providers.tuzi.time.time", side_effect=fake.time),
+            patch("nous.genai.providers.tuzi.time.sleep", side_effect=fake.sleep),
+            patch("nous.genai.providers.tuzi.TuziAdapter._suno_fetch") as suno_fetch,
+        ):
+            suno_fetch.return_value = {"status": "PENDING", "data": {}}
+            resp = tuzi._suno_wait_fetch_audio(
+                task_id="task_123", model_id="suno-v3", timeout_ms=1_000, wait=True
+            )
+
+        self.assertEqual(resp.status, "running")
+        self.assertIsNotNone(resp.job)
+        self.assertEqual(resp.job.job_id, "task_123")
+        self.assertEqual(resp.job.last_status, "PENDING")
+        self.assertIsNone(resp.job.last_detail)
