@@ -195,7 +195,11 @@ class TuziAdapter:
                 return self._kling_text2image(request, model_id=model_id)
             return self._seededit(request, model_id=model_id)
 
-        if modalities == {"audio"} and mid_l.startswith("chirp-") and mid_l != "chirp-v3":
+        if (
+            modalities == {"audio"}
+            and mid_l.startswith("chirp-")
+            and mid_l != "chirp-v3"
+        ):
             if stream:
                 raise invalid_request_error(
                     "chirp music generation does not support streaming"
@@ -596,8 +600,10 @@ class TuziAdapter:
             for k, v in opts.items():
                 if k in body:
                     raise invalid_request_error(f"provider_options cannot override {k}")
-                if k == "tags" and isinstance(v, list) and all(
-                    isinstance(x, str) and x.strip() for x in v
+                if (
+                    k == "tags"
+                    and isinstance(v, list)
+                    and all(isinstance(x, str) and x.strip() for x in v)
                 ):
                     body["tags"] = ",".join([x.strip() for x in v])
                     continue
@@ -678,7 +684,9 @@ class TuziAdapter:
                 wait=request.wait,
             )
 
-        keys = ",".join(sorted([k for k in obj.keys() if isinstance(k, str)])) or "<none>"
+        keys = (
+            ",".join(sorted([k for k in obj.keys() if isinstance(k, str)])) or "<none>"
+        )
         raise provider_error(f"suno music submit missing clip id (keys={keys})")
 
     def _suno_feed(
@@ -737,7 +745,9 @@ class TuziAdapter:
 
             if clip is not None:
                 raw_status = clip.get("status")
-                status = raw_status.strip().upper() if isinstance(raw_status, str) else ""
+                status = (
+                    raw_status.strip().upper() if isinstance(raw_status, str) else ""
+                )
                 if status:
                     last_status = status
                 elif raw_status is not None:
@@ -764,7 +774,9 @@ class TuziAdapter:
                         err = meta.get("error_message")
                         if isinstance(err, str) and err:
                             last_detail = err
-                    raise provider_error(f"suno feed task failed: {last_detail or ''}".strip())
+                    raise provider_error(
+                        f"suno feed task failed: {last_detail or ''}".strip()
+                    )
 
                 meta = clip.get("metadata")
                 if isinstance(meta, dict):
@@ -854,7 +866,9 @@ class TuziAdapter:
             inner = data.get("data")
             urls = _collect_urls(data) + _collect_urls(inner)
             if not urls:
-                blob = json.dumps(inner if inner is not None else data, ensure_ascii=False)
+                blob = json.dumps(
+                    inner if inner is not None else data, ensure_ascii=False
+                )
                 u = _extract_first_url(_AUDIO_URL_RE, blob)
                 if u:
                     urls.append(u)

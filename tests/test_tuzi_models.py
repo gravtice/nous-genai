@@ -118,7 +118,9 @@ class TestTuziModels(unittest.TestCase):
             adapter.capabilities("sd3.5-large").output_modalities, {"image"}
         )
         self.assertEqual(adapter.capabilities("pika-1.5").output_modalities, {"video"})
-        self.assertEqual(adapter.capabilities("chirp-v3-5").output_modalities, {"audio"})
+        self.assertEqual(
+            adapter.capabilities("chirp-v3-5").output_modalities, {"audio"}
+        )
 
         cap = adapter.capabilities("whisper-large-v3")
         self.assertEqual(cap.input_modalities, {"audio"})
@@ -244,7 +246,9 @@ class TestTuziModels(unittest.TestCase):
         parts = [p for m in resp.output for p in m.content]
         self.assertEqual(len(parts), 1)
         self.assertEqual(parts[0].type, "audio")
-        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3"
+        )
 
         self.assertEqual(len(calls), 1)
         body = calls[0]["json_body"]
@@ -305,7 +309,9 @@ class TestTuziModels(unittest.TestCase):
 
         self.assertEqual(resp.status, "completed")
         parts = [p for m in resp.output for p in m.content]
-        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3"
+        )
         self.assertEqual(
             calls,
             [
@@ -349,7 +355,10 @@ class TestTuziModels(unittest.TestCase):
         def fake_request_json(*, method, url, headers=None, json_body=None, **_kwargs):
             calls.append(url)
             if url == "https://example.invalid/suno/submit/music":
-                return {"id": "task_123", "clips": [{"id": "clip_123", "audio_url": ""}]}
+                return {
+                    "id": "task_123",
+                    "clips": [{"id": "clip_123", "audio_url": ""}],
+                }
             if url == "https://example.invalid/suno/fetch/task_123":
                 return {
                     "data": {
@@ -365,7 +374,9 @@ class TestTuziModels(unittest.TestCase):
 
         self.assertEqual(resp.status, "completed")
         parts = [p for m in resp.output for p in m.content]
-        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3"
+        )
         self.assertEqual(
             calls,
             [
@@ -425,7 +436,9 @@ class TestTuziModels(unittest.TestCase):
 
         self.assertEqual(resp.status, "completed")
         parts = [p for m in resp.output for p in m.content]
-        self.assertEqual(getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3")
+        self.assertEqual(
+            getattr(parts[0].source, "url", None), "https://example.invalid/a.mp3"
+        )
         self.assertEqual(
             calls,
             [
@@ -705,4 +718,6 @@ class TestTuziModels(unittest.TestCase):
         parts = [p for m in resp.output for p in m.content]
         self.assertEqual(len(parts), 1)
         self.assertEqual(parts[0].type, "audio")
-        self.assertEqual(getattr(parts[0].source, "url", None), "https://cdn1.suno.ai/abc.mp3")
+        self.assertEqual(
+            getattr(parts[0].source, "url", None), "https://cdn1.suno.ai/abc.mp3"
+        )
