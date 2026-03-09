@@ -51,7 +51,34 @@ NOUS_GENAI_TIMEOUT_MS=120000
 
 ## 快速开始
 
-### 文本生成
+### CLI（最快上手，统一 API，Agent 友好）
+
+```bash
+# 先看可用模型及能力（out=text/image/audio/video/embedding）
+uv run genai model available --all
+
+# 文本生成
+uv run genai --model openai:gpt-4o-mini --prompt "你好"
+
+# 图片理解（image -> text）
+uv run genai --model openai:gpt-4o-mini --prompt "描述这张图" --image-path ./examples/demo_image.png
+
+# 图片生成（text -> image file）
+uv run genai --model openai:gpt-image-1 --prompt "白底、极简风格的红色立方体" --output-path ./out.png
+
+# 语音转写（audio -> text）
+uv run genai --model openai:whisper-1 --audio-path ./examples/demo_tts.mp3
+
+# 语音合成（text -> audio file）
+uv run genai --model openai:tts-1 --prompt "你好，这里是 nous genai" --output-path ./out.mp3
+
+# 视频生成（text -> video，异步方式）
+uv run genai --model openai:sora-2 --prompt "雨后水洼上一只纸船缓缓前进，电影感" --no-wait
+# ...稍后
+uv run genai --model openai:sora-2 --job-id "<job_id>" --output-path ./out.mp4 --timeout-ms 600000
+```
+
+### SDK：文本生成
 
 ```python
 from nous.genai import Client, GenerateRequest, Message, OutputSpec, Part
@@ -67,7 +94,7 @@ resp = client.generate(
 print(resp.output[0].content[0].text)
 ```
 
-### 流式输出
+### SDK：流式输出
 
 ```python
 import sys
@@ -86,7 +113,7 @@ for ev in client.generate_stream(req):
 print()
 ```
 
-### 图片理解
+### SDK：图片理解
 
 ```python
 from nous.genai import Client, GenerateRequest, Message, OutputSpec, Part, PartSourcePath
@@ -114,7 +141,7 @@ resp = client.generate(
 print(resp.output[0].content[0].text)
 ```
 
-### 列出可用模型
+### SDK：列出可用模型
 
 ```python
 from nous.genai import Client

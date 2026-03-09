@@ -52,7 +52,34 @@ See `docs/CONFIGURATION.md` or copy `.env.example` to `.env.local`.
 
 ## Quickstart
 
-### Text generation
+### CLI (fastest, unified API, agent-friendly)
+
+```bash
+# List available models by capabilities (out=text/image/audio/video/embedding)
+uv run genai model available --all
+
+# Text generation
+uv run genai --model openai:gpt-4o-mini --prompt "Hello"
+
+# Image understanding (image -> text)
+uv run genai --model openai:gpt-4o-mini --prompt "Describe this image" --image-path ./examples/demo_image.png
+
+# Image generation (text -> image file)
+uv run genai --model openai:gpt-image-1 --prompt "A red cube on white background, minimal" --output-path ./out.png
+
+# Speech-to-text (audio -> text)
+uv run genai --model openai:whisper-1 --audio-path ./examples/demo_tts.mp3
+
+# Text-to-speech (text -> audio file)
+uv run genai --model openai:tts-1 --prompt "Hello from nous genai" --output-path ./out.mp3
+
+# Video generation (text -> video; async style)
+uv run genai --model openai:sora-2 --prompt "A paper boat sailing on a rain puddle, cinematic" --no-wait
+# ...later
+uv run genai --model openai:sora-2 --job-id "<job_id>" --output-path ./out.mp4 --timeout-ms 600000
+```
+
+### SDK: Text generation
 
 ```python
 from nous.genai import Client, GenerateRequest, Message, OutputSpec, Part
@@ -68,7 +95,7 @@ resp = client.generate(
 print(resp.output[0].content[0].text)
 ```
 
-### Streaming
+### SDK: Streaming
 
 ```python
 import sys
@@ -87,7 +114,7 @@ for ev in client.generate_stream(req):
 print()
 ```
 
-### Image understanding
+### SDK: Image understanding
 
 ```python
 from nous.genai import Client, GenerateRequest, Message, OutputSpec, Part, PartSourcePath
@@ -115,7 +142,7 @@ resp = client.generate(
 print(resp.output[0].content[0].text)
 ```
 
-### List available models
+### SDK: List available models
 
 ```python
 from nous.genai import Client
