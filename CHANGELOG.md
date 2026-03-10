@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-03-10
+
+### Changed
+
+- Lower minimum Python version from 3.12 to 3.10
+- Make `TypedDict` usage compatible with Python 3.10 (`typing_extensions.TypedDict`)
+- Update CI matrix to test both Python 3.10 and 3.12
+
 ## [0.1.2] - 2026-02-04
 
 ### Changed
@@ -64,7 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP artifact memory limits with LRU eviction
 - Signed artifact URLs for authenticated access
 
-[Unreleased]: https://github.com/gravtice/nous-genai/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/gravtice/nous-genai/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/gravtice/nous-genai/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/gravtice/nous-genai/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/gravtice/nous-genai/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/gravtice/nous-genai/releases/tag/v0.1.0
