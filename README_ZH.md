@@ -32,6 +32,19 @@ pip install -e .
 uv sync
 ```
 
+## Skill（外部仓库安装）
+
+`nous-genai` skill 已从本仓库移出，不再放在 `skills/` 目录。
+
+安装命令：
+
+```bash
+npx skills add gravtice/nous-skills -s nous-genai
+```
+
+如果需要查看 skill 源代码：
+https://github.com/gravtice/nous-skills/tree/main/skills/nous-genai
+
 ## 配置（环境变量，零参数）
 
 配置统一通过环境变量完成。

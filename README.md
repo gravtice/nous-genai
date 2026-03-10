@@ -33,6 +33,19 @@ pip install -e .
 uv sync
 ```
 
+## Skill (External Repository)
+
+The `nous-genai` skill is no longer bundled in this repository.
+
+Install it with:
+
+```bash
+npx skills add gravtice/nous-skills -s nous-genai
+```
+
+If you want to inspect the skill source code:
+https://github.com/gravtice/nous-skills/tree/main/skills/nous-genai
+
 ## Configuration (Env Vars, Zero-parameter)
 
 Configuration is managed via environment variables.
