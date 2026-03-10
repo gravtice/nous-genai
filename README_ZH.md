@@ -32,9 +32,22 @@ pip install -e .
 uv sync
 ```
 
-## 配置（零参数）
+## 配置（环境变量，零参数）
 
-SDK/CLI/MCP 启动时会自动加载环境文件，优先级（高 → 低）：
+配置统一通过环境变量完成。
+
+环境变量有两种设置方式：
+
+1. 运行时直接指定（命令前内联或在 shell 中 `export`）
+2. 写入环境配置文件（`.env.local`、`.env.production`、`.env.development`、`.env.test`）
+
+运行时内联示例：
+
+```bash
+NOUS_GENAI_OPENAI_API_KEY=... uv run genai --model openai:gpt-4o-mini --prompt "你好"
+```
+
+使用配置文件时，SDK/CLI/MCP 启动会自动加载，优先级（高 -> 低）：
 
 `.env.local > .env.production > .env.development > .env.test`
 

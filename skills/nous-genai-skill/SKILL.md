@@ -3,20 +3,20 @@ name: nous-genai-skill
 description: >
   Use nous-genai as an end user (not a contributor): run `genai` CLI for text/image/audio/video/embedding
   across providers (OpenAI/Gemini/Claude/DashScope/Doubao/Tuzi), save binary outputs, list available models, and start a
-  local MCP server (Streamable HTTP/SSE) with auth. Use when setting up `.env.local` provider keys, choosing
+  local MCP server (Streamable HTTP/SSE) with auth. Use when setting up provider keys via runtime env vars or `.env.*` files, choosing
   `{provider}:{model_id}`, or debugging common issues (auth/timeout/SSRF-download/MCP bearer-token rules).
   中文: 用 nous-genai 调用多家大模型 + 启动 MCP 服务 + 排错。
 ---
 
-# nous-genai（用户版）
+# nous-genai
 
 ## Quick Start
 
-**IMPORTANT:** Commands must run from this skill's base directory to load `.env.local` config.
+**IMPORTANT:** If you rely on `.env.*` files, run commands in the directory that contains those files (typically this skill base directory). If you pass runtime env vars (inline/export), working directory is not restricted.
 
 ```bash
 # 1) Create `.env.local` in this skill directory
-(cd "<SKILL_BASE_DIR>" && test -f .env.local || cp .env.example .env.local)
+(cd "<SKILL_BASE_DIR>" && { test -f .env.local || cp .env.example .env.local; })
 
 # 2) Edit `<SKILL_BASE_DIR>/.env.local` and set at least one provider key.
 # Example (OpenAI):
@@ -36,11 +36,27 @@ python -m pip install --upgrade nous-genai
 (cd "<SKILL_BASE_DIR>" && genai --model openai:gpt-4o-mini --prompt "Hello")
 ```
 
-## Configuration (Zero-parameter)
+## Configuration (Env Vars, Zero-parameter)
 
-Put all config in `<SKILL_BASE_DIR>/.env.local` (copy from `<SKILL_BASE_DIR>/.env.example`).
+Configuration is managed via environment variables.
 
-Env file load priority (high → low):
+You can set env vars in two ways:
+
+1. Runtime env vars (inline before command, or `export` in shell)
+2. Env files (`.env.local`, `.env.production`, `.env.development`, `.env.test`)
+
+Recommended for this skill:
+
+- Put stable/project-level config in `<SKILL_BASE_DIR>/.env.local` (copy from `<SKILL_BASE_DIR>/.env.example`)
+- Use runtime env vars for one-off overrides
+
+Runtime example (inline):
+
+```bash
+(cd "<SKILL_BASE_DIR>" && NOUS_GENAI_OPENAI_API_KEY=... uvx --from nous-genai genai --model openai:gpt-4o-mini --prompt "Hello")
+```
+
+When env files are used, SDK/CLI/MCP loads them automatically with priority (high -> low):
 
 - `.env.local > .env.production > .env.development > .env.test`
 
@@ -56,6 +72,7 @@ NOUS_GENAI_TIMEOUT_MS=120000
 Notes:
 
 - Do not commit `.env.local` (add it to `.gitignore` if needed).
+- For the full list of supported env vars, see `<SKILL_BASE_DIR>/.env.example` (same directory as this `SKILL.md`).
 - Provider keys also accept non-prefixed vars like `OPENAI_API_KEY`, but prefer `NOUS_GENAI_*` for clarity.
 
 Common keys:
@@ -110,7 +127,7 @@ If you have not configured any keys yet, you can still view the SDK curated list
 (cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai --model openai:tts-1 --prompt "你好" --output-path "/tmp/tts.mp3")
 ```
 
-## Python SDK（集成到你的项目）
+## Python SDK
 
 Install:
 
@@ -137,7 +154,7 @@ print(resp.output[0].content[0].text)
 Note: `Client()` loads `.env.*` from the current working directory; run your script in the directory that contains
 `.env.local`, or export env vars in the process environment.
 
-## MCP Server (给其它工具/LLM 调用)
+## MCP Server
 
 Start server (Streamable HTTP: `/mcp`, SSE: `/sse`):
 
@@ -145,7 +162,7 @@ Start server (Streamable HTTP: `/mcp`, SSE: `/sse`):
 (cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-server)
 ```
 
-Recommended: set auth in `.env.local` before exposing the server:
+Recommended: set auth via runtime env vars or `.env.local` before exposing the server:
 
 ```bash
 # NOUS_GENAI_MCP_BEARER_TOKEN=sk-...
@@ -156,23 +173,23 @@ Debug with MCP CLI:
 ```bash
 (cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli env)
 (cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli tools)
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli call --name list_providers)
-(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli call --name generate --args '{"model":"openai:gpt-4o-mini","input":"Hello","output":{"modalities":["text"]}}')
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli call list_providers)
+(cd "<SKILL_BASE_DIR>" && uvx --from nous-genai genai-mcp-cli call generate --args '{"request":{"model":"openai:gpt-4o-mini","input":"Hello","output":{"modalities":["text"]}}}')
 ```
 
 ## Troubleshooting
 
 ### Missing/invalid API key (401/403)
-Set provider credentials in `<SKILL_BASE_DIR>/.env.local` (copy from `<SKILL_BASE_DIR>/.env.example`), then retry.
+Set provider credentials via runtime env vars or in `<SKILL_BASE_DIR>/.env.local` (copy from `<SKILL_BASE_DIR>/.env.example`), then retry.
 
 ### File input errors (mime type)
 If you see `cannot detect ... mime type`, verify the path exists and is a valid image/audio/video file.
 
 ### Timeout / long-running jobs
-Increase `NOUS_GENAI_TIMEOUT_MS` in `.env.local` and retry.
+Increase `NOUS_GENAI_TIMEOUT_MS` (runtime env var or `.env.local`) and retry.
 
 ### URL download blocked / SSRF protection
 Binary outputs may be returned as URLs. Private/loopback URLs are rejected by default. Only if you understand the risk, set `NOUS_GENAI_ALLOW_PRIVATE_URLS=1`.
 
 ### MCP auth (401 Unauthorized)
-Set `NOUS_GENAI_MCP_BEARER_TOKEN` (or `NOUS_GENAI_MCP_TOKEN_RULES`) in `.env.local`, and ensure `genai-mcp-cli` uses the same token.
+Set `NOUS_GENAI_MCP_BEARER_TOKEN` (or `NOUS_GENAI_MCP_TOKEN_RULES`) via runtime env var or `.env.local`, and ensure `genai-mcp-cli` uses the same token.

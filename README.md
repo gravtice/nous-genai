@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/python-≥3.12-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
-中文文档：`readme_zh.md`
+中文文档：`README_ZH.md`
 
 One interface for calling multimodal models; four ways to use: Skill, MCP, CLI, SDK.
 
@@ -33,9 +33,22 @@ pip install -e .
 uv sync
 ```
 
-## Configuration (Zero-parameter)
+## Configuration (Env Vars, Zero-parameter)
 
-SDK/CLI/MCP loads env files automatically with priority (high → low):
+Configuration is managed via environment variables.
+
+You can set env vars in two ways:
+
+1. Runtime env vars (inline or exported in shell)
+2. Env files (`.env.local`, `.env.production`, `.env.development`, `.env.test`)
+
+Runtime example (inline):
+
+```bash
+NOUS_GENAI_OPENAI_API_KEY=... uv run genai --model openai:gpt-4o-mini --prompt "Hello"
+```
+
+When env files are used, SDK/CLI/MCP loads them automatically with priority (high -> low):
 
 `.env.local > .env.production > .env.development > .env.test`
 
@@ -48,7 +61,7 @@ NOUS_GENAI_OPENAI_API_KEY=...
 NOUS_GENAI_TIMEOUT_MS=120000
 ```
 
-See `docs/CONFIGURATION.md` or copy `.env.example` to `.env.local`.
+See `docs/CONFIGURATION.md` for all options, or copy `.env.example` to `.env.local`.
 
 ## Quickstart
 
