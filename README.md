@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/gravtice/nous-genai/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-≥3.10-blue)
-![License](https://img.shields.io/badge/license-Apache--2.0-green)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 中文文档：`README_ZH.md`
 
@@ -238,4 +238,4 @@ uv run pytest tests/ -v
 
 ## License
 
-[Apache-2.0](LICENSE)
+[MIT](LICENSE)
